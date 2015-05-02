@@ -57,6 +57,22 @@ class syntax_plugin_backlinks extends DokuWiki_Syntax_Plugin {
      */
     function handle($match, $state, $pos, &$handler){
 
+        // Because the page id can be a sidebar id, we
+        // can handle the  not here, otherwise it will be cached
+        // in the instructions
+
+        $match = substr($match,12,-2); //strip {{backlinks> from start and }} from end
+        return (array($match));
+    }
+
+    /**
+     * Handles the actual output creation.
+     * @see DokuWiki_Syntax_Plugin::render()
+     */
+    function render($mode, &$renderer, $data) {
+
+        global $lang;
+
         // Take the id of the source
         // It can be a rendering of a sidebar
         global $INFO;
@@ -67,47 +83,38 @@ class syntax_plugin_backlinks extends DokuWiki_Syntax_Plugin {
             $id = $INFO['id'];
         }
 
-
-        $match = substr($match,12,-2); //strip {{backlinks> from start and }} from end
-        $match = ($match == '.') ? $id : $match;
-
-        if(strstr($match,".:")) {
-            resolve_pageid(getNS($id),$match,$exists);
+        if ($data[0] == '.') { // The page id
+            $backLinksId =  $id;
+        } elseif (strstr($data[0],".:" )) { // Relative Path
+            $backLinksId = $data[0];
+            resolve_pageid(getNS($id),$backLinksId,$exists);
+        } else { // Full Path
+            $backLinksId = $data[0];
         }
-
-        return (array($match));
-    }
-
-    /**
-     * Handles the actual output creation.
-     * @see DokuWiki_Syntax_Plugin::render()
-     */
-    function render($mode, &$renderer, $data) {
-        global $lang;
 
         if($mode == 'xhtml'){
             $renderer->info['cache'] = false;
             
             @require_once(DOKU_INC.'inc/fulltext.php');
-            $backlinks = ft_backlinks($data[0]);
+            $backLinks = ft_backlinks($backLinksId);
             
             $renderer->doc .= '<div id="plugin__backlinks">' . DW_LF;
 
-            if(!empty($backlinks)) {
+            if(!empty($backLinks)) {
 
                 $renderer->doc .= '<ul class="idx">';
 
-                foreach($backlinks as $backlink){
-                    $name = p_get_metadata($backlink,'title');
-                    if(empty($name)) $name = $backlink;
+                foreach($backLinks as $backLink){
+                    $name = p_get_metadata($backLink,'title');
+                    if(empty($name)) $name = $backLink;
                     $renderer->doc .= '<li><div class="li">';
-                    $renderer->doc .= html_wikilink(':'.$backlink,$name,'');
+                    $renderer->doc .= html_wikilink(':'.$backLink,$name,'');
                     $renderer->doc .= '</div></li>';
                 }
 
                 $renderer->doc .= '</ul>';
             } else {
-                $renderer->doc .= "<strong>Plugin Backlinks: " . $lang['nothingfound'] . "</strong>";
+                $renderer->doc .= "<strong>Plugin BackLinks: " . $lang['nothingfound'] . "</strong>";
             }
             
             $renderer->doc .= '</div>' . DW_LF;
